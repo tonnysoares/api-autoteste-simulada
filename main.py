@@ -92,12 +92,40 @@ banco_simulado = {
     }
 }
 
-class ModeloConsulta(BaseModel):
-    modelo: str
+# 📌 Modelo do filtro esperado
+class Faixa(BaseModel):
+    min: Optional[float] = None
+    max: Optional[float] = None
 
-@app.get("/consulta/{modelo}")
-def consultar_aparelho(modelo: str):
-    modelo_key = modelo.lower().replace(" ", "-")
-    if modelo_key not in banco_simulado:
-        raise HTTPException(status_code=404, detail="Modelo não encontrado")
-    return banco_simulado[modelo_key]
+class Filtros(BaseModel):
+    memoria_ram: Optional[Faixa] = None
+    tela: Optional[Faixa] = None
+    processador: Optional[str] = None
+    resolucao_camera: Optional[Faixa] = None
+
+class RequisicaoFiltro(BaseModel):
+    filtros: Filtros
+
+# 📌 Novo endpoint
+@app.post("/filtros")
+def filtrar_aparelhos(requisicao: RequisicaoFiltro):
+    filtros = requisicao.filtros
+    resultado = []
+
+    for aparelho in banco_aparelhos:
+        if filtros.memoria_ram:
+            if not (filtros.memoria_ram.min <= aparelho["memoria_ram"] <= filtros.memoria_ram.max):
+                continue
+        if filtros.tela:
+            if not (filtros.tela.min <= aparelho["tela"] <= filtros.tela.max):
+                continue
+        if filtros.processador:
+            if filtros.processador != aparelho["processador"]:
+                continue
+        if filtros.resolucao_camera:
+            if aparelho["resolucao_camera"] < filtros.resolucao_camera.min:
+                continue
+
+        resultado.append(aparelho)
+
+    return {"resultado": resultado}
